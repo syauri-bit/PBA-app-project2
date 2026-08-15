@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { DerivedSet, MatchConfig, Side, Turn } from "@/lib/pba/types"
 import { TEAM_COLORS } from "@/lib/pba/types"
 import { isDoublesSet, getSetPlayers } from "@/lib/pba/game"
@@ -173,10 +173,11 @@ export function Scoreboard({
   const { theme } = useTheme()
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // 한글 입력 및 포커스 튐 방지를 위한 Local State
+  // 1. 타이핑 중 입력 포커스 튐 방지를 위한 Local State
   const [awayName, setAwayName] = useState(config.away.name)
   const [homeName, setHomeName] = useState(config.home.name)
 
+  // 외부 config 변경 시에만 local state 동기화
   useEffect(() => {
     setAwayName(config.away.name)
   }, [config.away.name])
@@ -185,33 +186,24 @@ export function Scoreboard({
     setHomeName(config.home.name)
   }, [config.home.name])
 
-  const handleAwayChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value
-      setAwayName(value)
-      if (onUpdateConfig) {
-        onUpdateConfig({
-          ...config,
-          away: { ...config.away, name: value },
-        })
-      }
-    },
-    [config, onUpdateConfig]
-  )
+  // 2. 포커스가 나갈 때(onBlur) 부모 State로 최종 데이터 저장
+  const saveAwayName = () => {
+    if (onUpdateConfig && awayName !== config.away.name) {
+      onUpdateConfig({
+        ...config,
+        away: { ...config.away, name: awayName },
+      })
+    }
+  }
 
-  const handleHomeChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value
-      setHomeName(value)
-      if (onUpdateConfig) {
-        onUpdateConfig({
-          ...config,
-          home: { ...config.home, name: value },
-        })
-      }
-    },
-    [config, onUpdateConfig]
-  )
+  const saveHomeName = () => {
+    if (onUpdateConfig && homeName !== config.home.name) {
+      onUpdateConfig({
+        ...config,
+        home: { ...config.home, name: homeName },
+      })
+    }
+  }
 
   const lastTurnInning = Math.max(
     derived.away.turns.reduce((m, t) => Math.max(m, t.inning), 0),
@@ -239,7 +231,7 @@ export function Scoreboard({
 
   return (
     <div ref={scrollRef} className="mx-auto w-full max-w-3xl">
-      {/* Team header row (입력창으로 수정된 부분) */}
+      {/* Team header row (onBlur 기반 입력창 적용) */}
       <div
         className="sticky top-0 z-[1] grid grid-cols-[1fr_auto_1fr] gap-2 py-1 text-center"
         style={{ backgroundColor: theme.bg }}
@@ -251,7 +243,8 @@ export function Scoreboard({
           <input
             type="text"
             value={awayName}
-            onChange={handleAwayChange}
+            onChange={(e) => setAwayName(e.target.value)}
+            onBlur={saveAwayName}
             placeholder="어웨이 팀명"
             className="w-full bg-transparent text-center text-sm font-black focus:outline-none"
             style={{ color: TEAM_COLORS.away }}
@@ -269,7 +262,8 @@ export function Scoreboard({
           <input
             type="text"
             value={homeName}
-            onChange={handleHomeChange}
+            onChange={(e) => setHomeName(e.target.value)}
+            onBlur={saveHomeName}
             placeholder="홈 팀명"
             className="w-full bg-transparent text-center text-sm font-black focus:outline-none"
             style={{ color: TEAM_COLORS.home }}
