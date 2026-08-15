@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { MatchConfig, MatchType, Side } from "@/lib/pba/types"
 import { matchTypeLabels, defaultPlayerNames } from "@/lib/pba/game"
 import { useTheme } from "./theme-context"
@@ -20,7 +20,7 @@ export function SetupScreen({
 }: SetupScreenProps) {
   const { theme } = useTheme()
 
-  // 1. 포커스 튐 방지를 위한 Local State
+  // 독립 Local State로 포커스 유지
   const [awayName, setAwayName] = useState(config.away.name)
   const [homeName, setHomeName] = useState(config.home.name)
   const [awayPlayers, setAwayPlayers] = useState(config.away.players)
@@ -29,29 +29,11 @@ export function SetupScreen({
   const [refereeMain, setRefereeMain] = useState(config.referees.main)
   const [refereeSub, setRefereeSub] = useState(config.referees.sub)
   const [refereeScorer, setRefereeScorer] = useState(config.referees.scorer)
-  const [refereeOfficial1, setRefereeOfficial1] = useState(
-    config.referees.official1
-  )
-  const [refereeOfficial2, setRefereeOfficial2] = useState(
-    config.referees.official2
-  )
+  const [refereeOfficial1, setRefereeOfficial1] = useState(config.referees.official1)
+  const [refereeOfficial2, setRefereeOfficial2] = useState(config.referees.official2)
   const [notes, setNotes] = useState(config.notes)
 
-  // 외부 config 변경 시 local state 동기화
-  useEffect(() => {
-    setAwayName(config.away.name)
-    setHomeName(config.home.name)
-    setAwayPlayers(config.away.players)
-    setHomePlayers(config.home.players)
-    setRefereeMain(config.referees.main)
-    setRefereeSub(config.referees.sub)
-    setRefereeScorer(config.referees.scorer)
-    setRefereeOfficial1(config.referees.official1)
-    setRefereeOfficial2(config.referees.official2)
-    setNotes(config.notes)
-  }, [config])
-
-  // 2. onBlur 및 즉시 갱신 핸들러
+  // 입력 완료(onBlur) 시에만 상위 Config 갱신
   const saveTeamNames = () => {
     onChangeConfig({
       ...config,
@@ -76,13 +58,14 @@ export function SetupScreen({
 
   const handleMatchTypeChange = (matchType: MatchType) => {
     const defaults = defaultPlayerNames(matchType)
-    const newConfig = {
+    setAwayPlayers(defaults.away)
+    setHomePlayers(defaults.home)
+    onChangeConfig({
       ...config,
       matchType,
       away: { ...config.away, players: defaults.away },
       home: { ...config.home, players: defaults.home },
-    }
-    onChangeConfig(newConfig)
+    })
   }
 
   const handleFirstServiceSideChange = (side: Side) => {
@@ -111,9 +94,7 @@ export function SetupScreen({
       <div className="space-y-2">
         <label className="text-xs font-bold opacity-70">방식</label>
         <div className="grid grid-cols-2 gap-2">
-          {(
-            Object.keys(matchTypeLabels) as Array<keyof typeof matchTypeLabels>
-          ).map((type) => {
+          {(Object.keys(matchTypeLabels) as Array<keyof typeof matchTypeLabels>).map((type) => {
             const active = config.matchType === type
             return (
               <button
@@ -244,7 +225,7 @@ export function SetupScreen({
           />
           {awayPlayers.map((p, idx) => (
             <input
-              key={`away-p-${idx}`}
+              key={`away-player-input-${idx}`}
               type="text"
               value={p}
               onChange={(e) => handleAwayPlayerChange(idx, e.target.value)}
@@ -268,7 +249,7 @@ export function SetupScreen({
           />
           {homePlayers.map((p, idx) => (
             <input
-              key={`home-p-${idx}`}
+              key={`home-player-input-${idx}`}
               type="text"
               value={p}
               onChange={(e) => handleHomePlayerChange(idx, e.target.value)}
@@ -353,7 +334,11 @@ export function SetupScreen({
         </button>
         <button
           type="button"
-          onClick={onStart}
+          onClick={() => {
+            saveTeamNames()
+            saveRefereesAndNotes()
+            onStart()
+          }}
           className="rounded-lg bg-black text-white dark:bg-white dark:text-black py-3 text-sm font-bold"
         >
           경기 시작
