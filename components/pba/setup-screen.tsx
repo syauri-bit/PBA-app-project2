@@ -1,6 +1,7 @@
 "use client"
 
-import type { MatchConfig, MatchType, Side } from "@/lib/pba/types"
+import { useState } from "react"
+import type { MatchConfig, MatchType } from "@/lib/pba/types"
 import { matchTypeLabels, defaultPlayerNames } from "@/lib/pba/game"
 import { useTheme } from "./theme-context"
 
@@ -12,71 +13,38 @@ interface SetupScreenProps {
 }
 
 export function SetupScreen({
-  config,
+  config: initialConfig,
   onChangeConfig,
   onStart,
   onBack,
 }: SetupScreenProps) {
   const { theme } = useTheme()
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-
-    const awayName = (formData.get("awayName") as string) || config.away.name
-    const homeName = (formData.get("homeName") as string) || config.home.name
-
-    const awayPlayers = config.away.players.map(
-      (_, i) => (formData.get(`awayPlayer_${i}`) as string) || `선수 ${i + 1}`
-    )
-    const homePlayers = config.home.players.map(
-      (_, i) => (formData.get(`homePlayer_${i}`) as string) || `선수 ${i + 1}`
-    )
-
-    const targetPoints = Number(formData.get("targetPoints")) || config.targetPoints
-    const maxTimeoutsPerSet = Math.min(
-      5,
-      Math.max(1, Number(formData.get("maxTimeoutsPerSet")) || config.maxTimeoutsPerSet)
-    )
-
-    const main = (formData.get("refereeMain") as string) || ""
-    const sub = (formData.get("refereeSub") as string) || ""
-    const scorer = (formData.get("refereeScorer") as string) || ""
-    const official1 = (formData.get("refereeOfficial1") as string) || ""
-    const official2 = (formData.get("refereeOfficial2") as string) || ""
-    const notes = (formData.get("notes") as string) || ""
-
-    onChangeConfig({
-      ...config,
-      targetPoints,
-      maxTimeoutsPerSet,
-      away: { ...config.away, name: awayName, players: awayPlayers },
-      home: { ...config.home, name: homeName, players: homePlayers },
-      referees: { main, sub, scorer, official1, official2 },
-      notes,
-    })
-
-    onStart()
-  }
+  const [formData, setFormData] = useState<MatchConfig>(initialConfig)
 
   const handleMatchTypeChange = (matchType: MatchType) => {
     const defaults = defaultPlayerNames(matchType)
-    onChangeConfig({
-      ...config,
+    setFormData((prev) => ({
+      ...prev,
       matchType,
-      away: { ...config.away, players: defaults.away },
-      home: { ...config.home, players: defaults.home },
-    })
+      away: { ...prev.away, players: defaults.away },
+      home: { ...prev.home, players: defaults.home },
+    }))
+  }
+
+  const handleStart = (e: React.FormEvent) => {
+    e.preventDefault()
+    onChangeConfig(formData)
+    onStart()
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto w-full max-w-2xl space-y-6 pb-12">
+    <form onSubmit={handleStart} className="mx-auto w-full max-w-2xl space-y-6 pb-12">
       {/* 경기 유형 선택 */}
       <div className="space-y-2">
         <label className="text-xs font-bold opacity-70">방식</label>
         <div className="grid grid-cols-2 gap-2">
           {(Object.keys(matchTypeLabels) as Array<keyof typeof matchTypeLabels>).map((type) => {
-            const active = config.matchType === type
+            const active = formData.matchType === type
             return (
               <button
                 key={type}
@@ -100,9 +68,14 @@ export function SetupScreen({
         <div className="space-y-2">
           <label className="text-xs font-bold opacity-70">승리 점수</label>
           <input
-            name="targetPoints"
             type="number"
-            defaultValue={config.targetPoints}
+            value={formData.targetPoints}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                targetPoints: Number(e.target.value) || 15,
+              }))
+            }
             className="w-full rounded-lg border p-2 text-center text-sm font-bold focus:outline-none"
           />
         </div>
@@ -111,9 +84,17 @@ export function SetupScreen({
             타임아웃 (1~5) / 세트당 최대 2회
           </label>
           <input
-            name="maxTimeoutsPerSet"
             type="number"
-            defaultValue={config.maxTimeoutsPerSet}
+            value={formData.maxTimeoutsPerSet}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                maxTimeoutsPerSet: Math.min(
+                  5,
+                  Math.max(1, Number(e.target.value) || 1)
+                ),
+              }))
+            }
             className="w-full rounded-lg border p-2 text-center text-sm font-bold focus:outline-none"
           />
         </div>
@@ -126,9 +107,9 @@ export function SetupScreen({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => onChangeConfig({ ...config, firstServiceSide: "away" })}
+              onClick={() => setFormData((prev) => ({ ...prev, firstServiceSide: "away" }))}
               className={`rounded-lg py-2 text-xs font-bold ${
-                config.firstServiceSide === "away"
+                formData.firstServiceSide === "away"
                   ? "bg-black text-white dark:bg-white dark:text-black"
                   : "border opacity-60"
               }`}
@@ -137,9 +118,9 @@ export function SetupScreen({
             </button>
             <button
               type="button"
-              onClick={() => onChangeConfig({ ...config, firstServiceSide: "home" })}
+              onClick={() => setFormData((prev) => ({ ...prev, firstServiceSide: "home" }))}
               className={`rounded-lg py-2 text-xs font-bold ${
-                config.firstServiceSide === "home"
+                formData.firstServiceSide === "home"
                   ? "bg-black text-white dark:bg-white dark:text-black"
                   : "border opacity-60"
               }`}
@@ -154,9 +135,9 @@ export function SetupScreen({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => onChangeConfig({ ...config, ballAssignment: "away" })}
+              onClick={() => setFormData((prev) => ({ ...prev, ballAssignment: "away" }))}
               className={`rounded-lg py-2 text-xs font-bold ${
-                config.ballAssignment === "away"
+                formData.ballAssignment === "away"
                   ? "bg-black text-white dark:bg-white dark:text-black"
                   : "border opacity-60"
               }`}
@@ -165,9 +146,9 @@ export function SetupScreen({
             </button>
             <button
               type="button"
-              onClick={() => onChangeConfig({ ...config, ballAssignment: "home" })}
+              onClick={() => setFormData((prev) => ({ ...prev, ballAssignment: "home" }))}
               className={`rounded-lg py-2 text-xs font-bold ${
-                config.ballAssignment === "home"
+                formData.ballAssignment === "home"
                   ? "bg-black text-white dark:bg-white dark:text-black"
                   : "border opacity-60"
               }`}
@@ -184,18 +165,30 @@ export function SetupScreen({
         <div className="space-y-3 rounded-lg border p-3">
           <label className="text-xs font-bold opacity-70">어웨이 (왼쪽)</label>
           <input
-            name="awayName"
             type="text"
-            defaultValue={config.away.name}
+            value={formData.away.name}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                away: { ...prev.away, name: e.target.value },
+              }))
+            }
             placeholder="어웨이 팀명"
             className="w-full rounded border p-2 text-sm font-bold focus:outline-none"
           />
-          {config.away.players.map((p, idx) => (
+          {formData.away.players.map((p, idx) => (
             <input
               key={`away-p-${idx}`}
-              name={`awayPlayer_${idx}`}
               type="text"
-              defaultValue={p}
+              value={p}
+              onChange={(e) => {
+                const nextPlayers = [...formData.away.players]
+                nextPlayers[idx] = e.target.value
+                setFormData((prev) => ({
+                  ...prev,
+                  away: { ...prev.away, players: nextPlayers },
+                }))
+              }}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
@@ -206,18 +199,30 @@ export function SetupScreen({
         <div className="space-y-3 rounded-lg border p-3">
           <label className="text-xs font-bold opacity-70">홈 (오른쪽)</label>
           <input
-            name="homeName"
             type="text"
-            defaultValue={config.home.name}
+            value={formData.home.name}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                home: { ...prev.home, name: e.target.value },
+              }))
+            }
             placeholder="홈 팀명"
             className="w-full rounded border p-2 text-sm font-bold focus:outline-none"
           />
-          {config.home.players.map((p, idx) => (
+          {formData.home.players.map((p, idx) => (
             <input
               key={`home-p-${idx}`}
-              name={`homePlayer_${idx}`}
               type="text"
-              defaultValue={p}
+              value={p}
+              onChange={(e) => {
+                const nextPlayers = [...formData.home.players]
+                nextPlayers[idx] = e.target.value
+                setFormData((prev) => ({
+                  ...prev,
+                  home: { ...prev.home, players: nextPlayers },
+                }))
+              }}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
@@ -230,39 +235,64 @@ export function SetupScreen({
         <label className="text-xs font-bold opacity-70">심판진 설정</label>
         <div className="grid grid-cols-3 gap-2">
           <input
-            name="refereeMain"
             type="text"
-            defaultValue={config.referees.main}
+            value={formData.referees.main}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                referees: { ...prev.referees, main: e.target.value },
+              }))
+            }
             placeholder="주심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            name="refereeSub"
             type="text"
-            defaultValue={config.referees.sub}
+            value={formData.referees.sub}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                referees: { ...prev.referees, sub: e.target.value },
+              }))
+            }
             placeholder="부심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            name="refereeScorer"
             type="text"
-            defaultValue={config.referees.scorer}
+            value={formData.referees.scorer}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                referees: { ...prev.referees, scorer: e.target.value },
+              }))
+            }
             placeholder="기록심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <input
-            name="refereeOfficial1"
             type="text"
-            defaultValue={config.referees.official1}
+            value={formData.referees.official1}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                referees: { ...prev.referees, official1: e.target.value },
+              }))
+            }
             placeholder="경기원 1"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            name="refereeOfficial2"
             type="text"
-            defaultValue={config.referees.official2}
+            value={formData.referees.official2}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                referees: { ...prev.referees, official2: e.target.value },
+              }))
+            }
             placeholder="경기원 2"
             className="rounded border p-2 text-xs focus:outline-none"
           />
@@ -273,8 +303,10 @@ export function SetupScreen({
       <div className="space-y-2">
         <label className="text-xs font-bold opacity-70">메모</label>
         <textarea
-          name="notes"
-          defaultValue={config.notes}
+          value={formData.notes}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, notes: e.target.value }))
+          }
           placeholder="메모 작성..."
           className="w-full rounded-lg border p-2 text-xs focus:outline-none"
           rows={3}
