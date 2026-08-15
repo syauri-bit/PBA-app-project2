@@ -20,7 +20,6 @@ export function SetupScreen({
 }: SetupScreenProps) {
   const { theme } = useTheme()
 
-  // 심판명처럼 화면 자체 폼 전용 Local State로 완전히 독립시킵니다.
   const [awayName, setAwayName] = useState(config.away.name)
   const [homeName, setHomeName] = useState(config.home.name)
   const [awayPlayers, setAwayPlayers] = useState<string[]>(config.away.players)
@@ -33,7 +32,6 @@ export function SetupScreen({
   const [refereeOfficial2, setRefereeOfficial2] = useState(config.referees.official2)
   const [notes, setNotes] = useState(config.notes)
 
-  // '경기 시작' 버튼이나 방식 변경 시에만 상위로 전송
   const handleStart = () => {
     onChangeConfig({
       ...config,
@@ -61,6 +59,18 @@ export function SetupScreen({
       away: { ...config.away, players: defaults.away },
       home: { ...config.home, players: defaults.home },
     })
+  }
+
+  const updateAwayPlayer = (index: number, value: string) => {
+    const updated = [...awayPlayers]
+    updated[index] = value
+    setAwayPlayers(updated)
+  }
+
+  const updateHomePlayer = (index: number, value: string) => {
+    const updated = [...homePlayers]
+    updated[index] = value
+    setHomePlayers(updated)
   }
 
   return (
@@ -185,7 +195,7 @@ export function SetupScreen({
         </div>
       </div>
 
-      {/* 팀 및 선수명 설정 (심판명 입력창과 완전 동일 구조) */}
+      {/* 팀 및 선수명 설정 */}
       <div className="grid grid-cols-2 gap-4">
         {/* 어웨이 */}
         <div className="space-y-3 rounded-lg border p-3">
@@ -199,14 +209,10 @@ export function SetupScreen({
           />
           {awayPlayers.map((p, idx) => (
             <input
-              key={idx}
+              key={`away-player-field-${idx}`}
               type="text"
               value={p}
-              onChange={(e) => {
-                const next = [...awayPlayers]
-                next[idx] = e.target.value
-                setAwayPlayers(next)
-              }}
+              onChange={(e) => updateAwayPlayer(idx, e.target.value)}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
@@ -225,14 +231,10 @@ export function SetupScreen({
           />
           {homePlayers.map((p, idx) => (
             <input
-              key={idx}
+              key={`home-player-field-${idx}`}
               type="text"
               value={p}
-              onChange={(e) => {
-                const next = [...homePlayers]
-                next[idx] = e.target.value
-                setHomePlayers(next)
-              }}
+              onChange={(e) => updateHomePlayer(idx, e.target.value)}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
