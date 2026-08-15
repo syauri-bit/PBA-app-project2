@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useState } from "react"
 import type { MatchConfig, MatchType, Side } from "@/lib/pba/types"
 import { matchTypeLabels, defaultPlayerNames } from "@/lib/pba/game"
 import { useTheme } from "./theme-context"
@@ -20,57 +20,41 @@ export function SetupScreen({
 }: SetupScreenProps) {
   const { theme } = useTheme()
 
-  // 리렌더링 시 포커스가 풀리지 않도록 DOM Ref로 제어
-  const awayNameRef = useRef<HTMLInputElement>(null)
-  const homeNameRef = useRef<HTMLInputElement>(null)
-  const awayPlayerRefs = useRef<(HTMLInputElement | null)[]>([])
-  const homePlayerRefs = useRef<(HTMLInputElement | null)[]>([])
+  // 심판명처럼 화면 자체 폼 전용 Local State로 완전히 독립시킵니다.
+  const [awayName, setAwayName] = useState(config.away.name)
+  const [homeName, setHomeName] = useState(config.home.name)
+  const [awayPlayers, setAwayPlayers] = useState<string[]>(config.away.players)
+  const [homePlayers, setHomePlayers] = useState<string[]>(config.home.players)
 
-  const refereeMainRef = useRef<HTMLInputElement>(null)
-  const refereeSubRef = useRef<HTMLInputElement>(null)
-  const refereeScorerRef = useRef<HTMLInputElement>(null)
-  const refereeOfficial1Ref = useRef<HTMLInputElement>(null)
-  const refereeOfficial2Ref = useRef<HTMLInputElement>(null)
-  const notesRef = useRef<HTMLTextAreaElement>(null)
+  const [refereeMain, setRefereeMain] = useState(config.referees.main)
+  const [refereeSub, setRefereeSub] = useState(config.referees.sub)
+  const [refereeScorer, setRefereeScorer] = useState(config.referees.scorer)
+  const [refereeOfficial1, setRefereeOfficial1] = useState(config.referees.official1)
+  const [refereeOfficial2, setRefereeOfficial2] = useState(config.referees.official2)
+  const [notes, setNotes] = useState(config.notes)
 
-  // 상위 Config로 한 번에 수집해 전달하는 함수
-  const syncAndSave = () => {
-    const updatedAwayPlayers = config.away.players.map((p, idx) => {
-      const el = awayPlayerRefs.current[idx]
-      return el ? el.value : p
-    })
-
-    const updatedHomePlayers = config.home.players.map((p, idx) => {
-      const el = homePlayerRefs.current[idx]
-      return el ? el.value : p
-    })
-
+  // '경기 시작' 버튼이나 방식 변경 시에만 상위로 전송
+  const handleStart = () => {
     onChangeConfig({
       ...config,
-      away: {
-        ...config.away,
-        name: awayNameRef.current?.value ?? config.away.name,
-        players: updatedAwayPlayers,
-      },
-      home: {
-        ...config.home,
-        name: homeNameRef.current?.value ?? config.home.name,
-        players: updatedHomePlayers,
-      },
+      away: { ...config.away, name: awayName, players: awayPlayers },
+      home: { ...config.home, name: homeName, players: homePlayers },
       referees: {
-        main: refereeMainRef.current?.value ?? config.referees.main,
-        sub: refereeSubRef.current?.value ?? config.referees.sub,
-        scorer: refereeScorerRef.current?.value ?? config.referees.scorer,
-        official1: refereeOfficial1Ref.current?.value ?? config.referees.official1,
-        official2: refereeOfficial2Ref.current?.value ?? config.referees.official2,
+        main: refereeMain,
+        sub: refereeSub,
+        scorer: refereeScorer,
+        official1: refereeOfficial1,
+        official2: refereeOfficial2,
       },
-      notes: notesRef.current?.value ?? config.notes,
+      notes,
     })
+    onStart()
   }
 
   const handleMatchTypeChange = (matchType: MatchType) => {
-    syncAndSave()
     const defaults = defaultPlayerNames(matchType)
+    setAwayPlayers(defaults.away)
+    setHomePlayers(defaults.home)
     onChangeConfig({
       ...config,
       matchType,
@@ -111,8 +95,8 @@ export function SetupScreen({
           <label className="text-xs font-bold opacity-70">승리 점수</label>
           <input
             type="number"
-            defaultValue={config.targetPoints}
-            onBlur={(e) =>
+            value={config.targetPoints}
+            onChange={(e) =>
               onChangeConfig({
                 ...config,
                 targetPoints: Number(e.target.value) || 15,
@@ -127,8 +111,8 @@ export function SetupScreen({
           </label>
           <input
             type="number"
-            defaultValue={config.maxTimeoutsPerSet}
-            onBlur={(e) =>
+            value={config.maxTimeoutsPerSet}
+            onChange={(e) =>
               onChangeConfig({
                 ...config,
                 maxTimeoutsPerSet: Math.min(
@@ -149,10 +133,7 @@ export function SetupScreen({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => {
-                syncAndSave()
-                onChangeConfig({ ...config, firstServiceSide: "away" })
-              }}
+              onClick={() => onChangeConfig({ ...config, firstServiceSide: "away" })}
               className={`rounded-lg py-2 text-xs font-bold ${
                 config.firstServiceSide === "away"
                   ? "bg-black text-white dark:bg-white dark:text-black"
@@ -163,10 +144,7 @@ export function SetupScreen({
             </button>
             <button
               type="button"
-              onClick={() => {
-                syncAndSave()
-                onChangeConfig({ ...config, firstServiceSide: "home" })
-              }}
+              onClick={() => onChangeConfig({ ...config, firstServiceSide: "home" })}
               className={`rounded-lg py-2 text-xs font-bold ${
                 config.firstServiceSide === "home"
                   ? "bg-black text-white dark:bg-white dark:text-black"
@@ -183,10 +161,7 @@ export function SetupScreen({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => {
-                syncAndSave()
-                onChangeConfig({ ...config, ballAssignment: "away" })
-              }}
+              onClick={() => onChangeConfig({ ...config, ballAssignment: "away" })}
               className={`rounded-lg py-2 text-xs font-bold ${
                 config.ballAssignment === "away"
                   ? "bg-black text-white dark:bg-white dark:text-black"
@@ -197,10 +172,7 @@ export function SetupScreen({
             </button>
             <button
               type="button"
-              onClick={() => {
-                syncAndSave()
-                onChangeConfig({ ...config, ballAssignment: "home" })
-              }}
+              onClick={() => onChangeConfig({ ...config, ballAssignment: "home" })}
               className={`rounded-lg py-2 text-xs font-bold ${
                 config.ballAssignment === "home"
                   ? "bg-black text-white dark:bg-white dark:text-black"
@@ -213,24 +185,28 @@ export function SetupScreen({
         </div>
       </div>
 
-      {/* 팀 및 선수명 설정 */}
+      {/* 팀 및 선수명 설정 (심판명 입력창과 완전 동일 구조) */}
       <div className="grid grid-cols-2 gap-4">
         {/* 어웨이 */}
         <div className="space-y-3 rounded-lg border p-3">
           <label className="text-xs font-bold opacity-70">어웨이 (왼쪽)</label>
           <input
-            ref={awayNameRef}
             type="text"
-            defaultValue={config.away.name}
+            value={awayName}
+            onChange={(e) => setAwayName(e.target.value)}
             placeholder="어웨이 팀명"
             className="w-full rounded border p-2 text-sm font-bold focus:outline-none"
           />
-          {config.away.players.map((p, idx) => (
+          {awayPlayers.map((p, idx) => (
             <input
-              key={`away-player-${idx}`}
-              ref={(el) => { awayPlayerRefs.current[idx] = el }}
+              key={idx}
               type="text"
-              defaultValue={p}
+              value={p}
+              onChange={(e) => {
+                const next = [...awayPlayers]
+                next[idx] = e.target.value
+                setAwayPlayers(next)
+              }}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
@@ -241,18 +217,22 @@ export function SetupScreen({
         <div className="space-y-3 rounded-lg border p-3">
           <label className="text-xs font-bold opacity-70">홈 (오른쪽)</label>
           <input
-            ref={homeNameRef}
             type="text"
-            defaultValue={config.home.name}
+            value={homeName}
+            onChange={(e) => setHomeName(e.target.value)}
             placeholder="홈 팀명"
             className="w-full rounded border p-2 text-sm font-bold focus:outline-none"
           />
-          {config.home.players.map((p, idx) => (
+          {homePlayers.map((p, idx) => (
             <input
-              key={`home-player-${idx}`}
-              ref={(el) => { homePlayerRefs.current[idx] = el }}
+              key={idx}
               type="text"
-              defaultValue={p}
+              value={p}
+              onChange={(e) => {
+                const next = [...homePlayers]
+                next[idx] = e.target.value
+                setHomePlayers(next)
+              }}
               placeholder={`선수 ${idx + 1}`}
               className="w-full rounded border p-1.5 text-xs focus:outline-none"
             />
@@ -265,39 +245,39 @@ export function SetupScreen({
         <label className="text-xs font-bold opacity-70">심판진 설정</label>
         <div className="grid grid-cols-3 gap-2">
           <input
-            ref={refereeMainRef}
             type="text"
-            defaultValue={config.referees.main}
+            value={refereeMain}
+            onChange={(e) => setRefereeMain(e.target.value)}
             placeholder="주심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            ref={refereeSubRef}
             type="text"
-            defaultValue={config.referees.sub}
+            value={refereeSub}
+            onChange={(e) => setRefereeSub(e.target.value)}
             placeholder="부심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            ref={refereeScorerRef}
             type="text"
-            defaultValue={config.referees.scorer}
+            value={refereeScorer}
+            onChange={(e) => setRefereeScorer(e.target.value)}
             placeholder="기록심"
             className="rounded border p-2 text-xs focus:outline-none"
           />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <input
-            ref={refereeOfficial1Ref}
             type="text"
-            defaultValue={config.referees.official1}
+            value={refereeOfficial1}
+            onChange={(e) => setRefereeOfficial1(e.target.value)}
             placeholder="경기원 1"
             className="rounded border p-2 text-xs focus:outline-none"
           />
           <input
-            ref={refereeOfficial2Ref}
             type="text"
-            defaultValue={config.referees.official2}
+            value={refereeOfficial2}
+            onChange={(e) => setRefereeOfficial2(e.target.value)}
             placeholder="경기원 2"
             className="rounded border p-2 text-xs focus:outline-none"
           />
@@ -308,8 +288,8 @@ export function SetupScreen({
       <div className="space-y-2">
         <label className="text-xs font-bold opacity-70">메모</label>
         <textarea
-          ref={notesRef}
-          defaultValue={config.notes}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           placeholder="메모 작성..."
           className="w-full rounded-lg border p-2 text-xs focus:outline-none"
           rows={3}
@@ -327,10 +307,7 @@ export function SetupScreen({
         </button>
         <button
           type="button"
-          onClick={() => {
-            syncAndSave()
-            onStart()
-          }}
+          onClick={handleStart}
           className="rounded-lg bg-black text-white dark:bg-white dark:text-black py-3 text-sm font-bold"
         >
           경기 시작
