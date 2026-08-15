@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import type { DerivedSet, MatchConfig, Side, Turn } from "@/lib/pba/types"
 import { TEAM_COLORS } from "@/lib/pba/types"
 import { isDoublesSet, getSetPlayers } from "@/lib/pba/game"
@@ -12,18 +12,29 @@ interface ScoreboardProps {
   derived: DerivedSet
   current: Turn | null
   setIndex?: number
+  onUpdateConfig?: (newConfig: MatchConfig) => void
 }
 
 function DoublesLetter(idx: number): "A" | "B" {
   return idx === 0 ? "A" : "B"
 }
 
-function playerName(config: MatchConfig, setIndex: number, side: Side, playerIndex: number): string {
+function playerName(
+  config: MatchConfig,
+  setIndex: number,
+  side: Side,
+  playerIndex: number
+): string {
   const list = getSetPlayers(config, setIndex ?? 0, side)
   return list[playerIndex] ?? list[0] ?? "선수"
 }
 
-function playerShortName(config: MatchConfig, setIndex: number, side: Side, playerIndex: number): string {
+function playerShortName(
+  config: MatchConfig,
+  setIndex: number,
+  side: Side,
+  playerIndex: number
+): string {
   const name = playerName(config, setIndex, side, playerIndex)
   return name.length <= 2 ? name : name.slice(0, 2)
 }
@@ -46,6 +57,7 @@ function TurnCell({
   accent: string
 }) {
   const isDoubles = isDoublesSet(config, setIndex)
+
   if (!turn) {
     return (
       <div
@@ -55,10 +67,14 @@ function TurnCell({
       />
     )
   }
+
   const highlight = isCurrent ? accent : fg
   const pName = isDoubles
-    ? `${playerShortName(config, setIndex, side, turn.playerIndex)}#${DoublesLetter(turn.playerIndex)}`
+    ? `${playerShortName(config, setIndex, side, turn.playerIndex)}#${DoublesLetter(
+        turn.playerIndex
+      )}`
     : playerName(config, setIndex, side, turn.playerIndex)
+
   return (
     <div
       ref={(el) => {
@@ -82,14 +98,20 @@ function TurnCell({
       }
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-xs font-semibold opacity-80">{pName}</span>
+        <span className="truncate text-xs font-semibold opacity-80">
+          {pName}
+        </span>
         <span className="shrink-0 tabular-nums text-right text-[10px] opacity-50">
           누적 {turn.runningTotal}
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="tabular-nums text-2xl font-black leading-none">+{turn.points}</span>
-        <span className="tabular-nums text-lg font-bold leading-none">{turn.runningTotal}</span>
+        <span className="tabular-nums text-2xl font-black leading-none">
+          +{turn.points}
+        </span>
+        <span className="tabular-nums text-lg font-bold leading-none">
+          {turn.runningTotal}
+        </span>
       </div>
       {(turn.sequence.length > 0 || turn.markers.length > 0) && (
         <div
@@ -108,7 +130,9 @@ function TurnCell({
                 }}
               >
                 {isDoubles && (
-                  <span className="mr-0.5 opacity-70">{DoublesLetter(pIdx)}</span>
+                  <span className="mr-0.5 opacity-70">
+                    {DoublesLetter(pIdx)}
+                  </span>
                 )}
                 {v}
               </span>
@@ -144,18 +168,60 @@ export function Scoreboard({
   derived,
   current,
   setIndex = 0,
+  onUpdateConfig,
 }: ScoreboardProps) {
   const { theme } = useTheme()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  // 한글 입력 및 포커스 튐 방지를 위한 Local State
+  const [awayName, setAwayName] = useState(config.away.name)
+  const [homeName, setHomeName] = useState(config.home.name)
+
+  useEffect(() => {
+    setAwayName(config.away.name)
+  }, [config.away.name])
+
+  useEffect(() => {
+    setHomeName(config.home.name)
+  }, [config.home.name])
+
+  const handleAwayChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setAwayName(value)
+      if (onUpdateConfig) {
+        onUpdateConfig({
+          ...config,
+          away: { ...config.away, name: value },
+        })
+      }
+    },
+    [config, onUpdateConfig]
+  )
+
+  const handleHomeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setHomeName(value)
+      if (onUpdateConfig) {
+        onUpdateConfig({
+          ...config,
+          home: { ...config.home, name: value },
+        })
+      }
+    },
+    [config, onUpdateConfig]
+  )
+
   const lastTurnInning = Math.max(
     derived.away.turns.reduce((m, t) => Math.max(m, t.inning), 0),
-    derived.home.turns.reduce((m, t) => Math.max(m, t.inning), 0),
+    derived.home.turns.reduce((m, t) => Math.max(m, t.inning), 0)
   )
   const maxInning = Math.max(derived.currentInning, lastTurnInning, 1)
 
   const getTurn = (side: Side, inning: number): Turn | null => {
-    if (current && current.side === side && current.inning === inning) return current
+    if (current && current.side === side && current.inning === inning)
+      return current
     const found = derived[side].turns.find((t) => t.inning === inning)
     return found ?? null
   }
@@ -173,25 +239,45 @@ export function Scoreboard({
 
   return (
     <div ref={scrollRef} className="mx-auto w-full max-w-3xl">
+      {/* Team header row (입력창으로 수정된 부분) */}
       <div
         className="sticky top-0 z-[1] grid grid-cols-[1fr_auto_1fr] gap-2 py-1 text-center"
         style={{ backgroundColor: theme.bg }}
       >
         <div
-          className="rounded-md border-b-2 py-1 text-sm font-black"
-          style={{ borderColor: TEAM_COLORS.away, color: TEAM_COLORS.away }}
+          className="flex items-center justify-center rounded-md border-b-2 px-1 py-0.5"
+          style={{ borderColor: TEAM_COLORS.away }}
         >
-          {config.away.name}
+          <input
+            type="text"
+            value={awayName}
+            onChange={handleAwayChange}
+            placeholder="어웨이 팀명"
+            className="w-full bg-transparent text-center text-sm font-black focus:outline-none"
+            style={{ color: TEAM_COLORS.away }}
+          />
         </div>
-        <div className="w-10 self-center text-xs font-bold opacity-50">이닝</div>
+
+        <div className="w-10 self-center text-xs font-bold opacity-50">
+          이닝
+        </div>
+
         <div
-          className="rounded-md border-b-2 py-1 text-sm font-black"
-          style={{ borderColor: TEAM_COLORS.home, color: TEAM_COLORS.home }}
+          className="flex items-center justify-center rounded-md border-b-2 px-1 py-0.5"
+          style={{ borderColor: TEAM_COLORS.home }}
         >
-          {config.home.name}
+          <input
+            type="text"
+            value={homeName}
+            onChange={handleHomeChange}
+            placeholder="홈 팀명"
+            className="w-full bg-transparent text-center text-sm font-black focus:outline-none"
+            style={{ color: TEAM_COLORS.home }}
+          />
         </div>
       </div>
 
+      {/* Inning score list */}
       <div className="flex flex-col gap-1.5">
         {innings.map((inning) => (
           <div
