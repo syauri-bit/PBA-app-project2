@@ -19,7 +19,6 @@ export function SetupScreen({
 }: SetupScreenProps) {
   const { theme } = useTheme()
 
-  // 폼 제출(경기 시작 버튼 클릭) 시 한꺼번에 입력값 수집 및 상위 전송
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
@@ -34,6 +33,12 @@ export function SetupScreen({
       (_, i) => (formData.get(`homePlayer_${i}`) as string) || `선수 ${i + 1}`
     )
 
+    const targetPoints = Number(formData.get("targetPoints")) || config.targetPoints
+    const maxTimeoutsPerSet = Math.min(
+      5,
+      Math.max(1, Number(formData.get("maxTimeoutsPerSet")) || config.maxTimeoutsPerSet)
+    )
+
     const main = (formData.get("refereeMain") as string) || ""
     const sub = (formData.get("refereeSub") as string) || ""
     const scorer = (formData.get("refereeScorer") as string) || ""
@@ -43,6 +48,8 @@ export function SetupScreen({
 
     onChangeConfig({
       ...config,
+      targetPoints,
+      maxTimeoutsPerSet,
       away: { ...config.away, name: awayName, players: awayPlayers },
       home: { ...config.home, name: homeName, players: homePlayers },
       referees: { main, sub, scorer, official1, official2 },
@@ -93,14 +100,9 @@ export function SetupScreen({
         <div className="space-y-2">
           <label className="text-xs font-bold opacity-70">승리 점수</label>
           <input
+            name="targetPoints"
             type="number"
             defaultValue={config.targetPoints}
-            onChange={(e) =>
-              onChangeConfig({
-                ...config,
-                targetPoints: Number(e.target.value) || 15,
-              })
-            }
             className="w-full rounded-lg border p-2 text-center text-sm font-bold focus:outline-none"
           />
         </div>
@@ -109,17 +111,9 @@ export function SetupScreen({
             타임아웃 (1~5) / 세트당 최대 2회
           </label>
           <input
+            name="maxTimeoutsPerSet"
             type="number"
             defaultValue={config.maxTimeoutsPerSet}
-            onChange={(e) =>
-              onChangeConfig({
-                ...config,
-                maxTimeoutsPerSet: Math.min(
-                  5,
-                  Math.max(1, Number(e.target.value) || 1)
-                ),
-              })
-            }
             className="w-full rounded-lg border p-2 text-center text-sm font-bold focus:outline-none"
           />
         </div>
